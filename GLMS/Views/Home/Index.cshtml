@@ -1,0 +1,77 @@
+﻿@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="text-center">
+    <h1 class="display-4">🌍 Global Logistics Management System</h1>
+    <p class="lead">Welcome to TechMove Logistics - Enterprise Shipping Coordinator</p>
+    <hr />
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4 mb-3">
+        <div class="card text-white bg-primary h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-3x mb-3"></i>
+                <h5 class="card-title">Client Management</h5>
+                <p class="card-text">Manage all client information, contact details, and regional data.</p>
+                <a href="/Clients" class="btn btn-light">Manage Clients →</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+        <div class="card text-white bg-success h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-file-contract fa-3x mb-3"></i>
+                <h5 class="card-title">Contract Management</h5>
+                <p class="card-text">Create and manage contracts with PDF uploads and status tracking.</p>
+                <a href="/Contracts" class="btn btn-light">Manage Contracts →</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+        <div class="card text-white bg-warning h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-truck fa-3x mb-3"></i>
+                <h5 class="card-title">Service Requests</h5>
+                <p class="card-text">Raise service requests with automatic currency conversion.</p>
+                <a href="/ServiceRequests" class="btn btn-light">Manage Requests →</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <i class="fas fa-info-circle"></i> System Features
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check-circle text-success"></i> Centralised contract repository</li>
+                    <li><i class="fas fa-check-circle text-success"></i> Automated status tracking (Draft/Active/Expired/On Hold)</li>
+                    <li><i class="fas fa-check-circle text-success"></i> PDF agreement upload & download</li>
+                    <li><i class="fas fa-check-circle text-success"></i> Live currency conversion (USD → ZAR)</li>
+                    <li><i class="fas fa-check-circle text-success"></i> Validation against active contracts only</li>
+                    <li><i class="fas fa-check-circle text-success"></i> Search & filter functionality</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <i class="fas fa-chart-line"></i> Quick Stats
+            </div>
+            <div class="card-body">
+                <p><strong>Exchange Rate (USD to ZAR):</strong> Live from API</p>
+                <p><strong>Contract Status:</strong> Draft → Active → Expired/On Hold</p>
+                <p><strong>Service Request Flow:</strong> Pending → Approved → In Progress → Completed</p>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,90 @@
+﻿@model GLMS.Models.ServiceRequest
+
+@{
+    ViewData["Title"] = "Create Service Request";
+}
+
+<h1><i class="fas fa-plus-circle"></i> Create Service Request</h1>
+<hr />
+
+<div class="row">
+    <div class="col-md-8">
+        <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="form-group mb-3">
+                <label asp-for="ContractId" class="form-label"></label>
+                <select asp-for="ContractId" class="form-control" asp-items="ViewBag.Contracts">
+                    <option value="">-- Select Active Contract --</option>
+                </select>
+                <span asp-validation-for="ContractId" class="text-danger"></span>
+                <small class="text-muted">Only active contracts are shown.</small>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="Description" class="form-label"></label>
+                <input asp-for="Description" class="form-control" />
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="CostUSD" class="form-label">Cost (USD)</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input asp-for="CostUSD" class="form-control" id="costUSD" />
+                </div>
+                <span asp-validation-for="CostUSD" class="text-danger"></span>
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label">Cost (ZAR) - Calculated</label>
+                <div class="input-group">
+                    <span class="input-group-text">R</span>
+                    <input type="text" id="costZAR" class="form-control" readonly disabled />
+                </div>
+                <small class="text-muted">
+                    Exchange Rate: 1 USD = <span id="exchangeRate">@ViewBag.CurrentExchangeRate?.ToString("F4")</span> ZAR
+                </small>
+            </div>
+
+            <div class="form-group mb-3">
+                <label asp-for="SpecialInstructions" class="form-label"></label>
+                <textarea asp-for="SpecialInstructions" class="form-control" rows="3"></textarea>
+                <span asp-validation-for="SpecialInstructions" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Create</button>
+                <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-header">Information</div>
+            <div class="card-body">
+                <p><i class="fas fa-info-circle"></i> Request Number will be auto-generated.</p>
+                <p><i class="fas fa-chart-line"></i> Currency conversion uses live exchange rates.</p>
+                <p><i class="fas fa-check-circle"></i> Only active contracts can have service requests.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    
+    <script>
+        // Live currency conversion
+        const exchangeRate = @ViewBag.CurrentExchangeRate?.ToString().Replace(",", ".") ?? 19.50;
+        
+        document.getElementById('costUSD').addEventListener('input', function() {
+            const usd = parseFloat(this.value) || 0;
+            const zar = usd * exchangeRate;
+            document.getElementById('costZAR').value = zar.toFixed(2);
+        });
+    </script>
+}

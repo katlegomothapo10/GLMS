@@ -1,0 +1,33 @@
+﻿@model GLMS.Models.Client
+
+@{
+    ViewData["Title"] = "Delete Client";
+}
+
+<h1><i class="fas fa-trash-alt"></i> Delete Client</h1>
+<hr />
+
+<div class="alert alert-danger">
+    <i class="fas fa-exclamation-triangle"></i> Are you sure you want to delete this client?
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
+            <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
+
+            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Email)</dt>
+            <dd class="col-sm-9">@Html.DisplayFor(model => model.Email)</dd>
+
+            <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Region)</dt>
+            <dd class="col-sm-9">@Html.DisplayFor(model => model.Region)</dd>
+        </dl>
+    </div>
+</div>
+
+<form asp-action="Delete" class="mt-3">
+    <input type="hidden" asp-for="ClientId" />
+    <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancel</a>
+</form>

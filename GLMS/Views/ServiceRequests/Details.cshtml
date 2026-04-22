@@ -1,0 +1,78 @@
+﻿@model GLMS.Models.ServiceRequest
+
+@{
+    ViewData["Title"] = "Service Request Details";
+}
+
+<h1><i class="fas fa-info-circle"></i> Service Request Details</h1>
+<hr />
+
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">@Model.RequestNumber</h5>
+    </div>
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-3">Request Number</dt>
+            <dd class="col-sm-9">@Model.RequestNumber</dd>
+
+            <dt class="col-sm-3">Contract</dt>
+            <dd class="col-sm-9">@Model.Contract?.ContractNumber</dd>
+
+            <dt class="col-sm-3">Client</dt>
+            <dd class="col-sm-9">@Model.Contract?.Client?.Name</dd>
+
+            <dt class="col-sm-3">Description</dt>
+            <dd class="col-sm-9">@Model.Description</dd>
+
+            <dt class="col-sm-3">Cost (USD)</dt>
+            <dd class="col-sm-9">$@Model.CostUSD.ToString("N2")</dd>
+
+            <dt class="col-sm-3">Cost (ZAR)</dt>
+            <dd class="col-sm-9">R@Model.CostZAR.ToString("N2")</dd>
+
+            <dt class="col-sm-3">Exchange Rate Used</dt>
+            <dd class="col-sm-9">1 USD = @Model.ExchangeRateUsed.ToString("F4") ZAR</dd>
+
+            <dt class="col-sm-3">Status</dt>
+            <dd class="col-sm-9">
+                @if (Model.Status == GLMS.Models.RequestStatus.Completed)
+                {
+                    <span class="badge bg-success">@Model.Status</span>
+                }
+                else if (Model.Status == GLMS.Models.RequestStatus.Cancelled)
+                {
+                    <span class="badge bg-danger">@Model.Status</span>
+                }
+                else if (Model.Status == GLMS.Models.RequestStatus.InProgress)
+                {
+                    <span class="badge bg-primary">@Model.Status</span>
+                }
+                else
+                {
+                    <span class="badge bg-warning">@Model.Status</span>
+                }
+            </dd>
+
+            <dt class="col-sm-3">Special Instructions</dt>
+            <dd class="col-sm-9">@Html.DisplayFor(model => model.SpecialInstructions)</dd>
+
+            <dt class="col-sm-3">Requested Date</dt>
+            <dd class="col-sm-9">@Model.RequestedDate.ToString("yyyy-MM-dd HH:mm")</dd>
+
+            @if (Model.CompletedDate.HasValue)
+            {
+                <dt class="col-sm-3">Completed Date</dt>
+                <dd class="col-sm-9">@Model.CompletedDate.Value.ToString("yyyy-MM-dd HH:mm")</dd>
+            }
+        </dl>
+    </div>
+</div>
+
+<div class="mt-3">
+    @if (Model.Status == GLMS.Models.RequestStatus.Pending)
+    {
+        <a asp-action="Edit" asp-route-id="@Model.ServiceRequestId" class="btn btn-warning">Edit</a>
+    }
+    <a asp-action="Index" class="btn btn-secondary">Back to List</a>
+</div>
