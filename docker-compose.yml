@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  glms-backend-api:
+    build:
+      context: .
+      dockerfile: GLMS.API/Dockerfile
+    container_name: glms_api
+    ports:
+      - "7001:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+    networks:
+      - glms_network
+
+  glms-frontend-web:
+    build:
+      context: .
+      dockerfile: GLMS/Dockerfile
+    container_name: glms_mvc
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+    depends_on:
+      - glms-backend-api
+    networks:
+      - glms_network
+
+networks:
+  glms_network:
+    driver: bridge
