@@ -4,17 +4,19 @@
     ViewData["Title"] = "Create Service Request";
 }
 
+
+
 <h1><i class="fas fa-plus-circle"></i> Create Service Request</h1>
 <hr />
 
 <div class="row">
     <div class="col-md-8">
-        <form asp-action="Create">
+        <form asp-action="Create" method="post">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
             <div class="form-group mb-3">
                 <label asp-for="ContractId" class="form-label"></label>
-                <select asp-for="ContractId" class="form-control" asp-items="ViewBag.Contracts">
+                <select asp-for="ContractId" class="form-control" asp-items="ViewBag.Contracts" id="ContractId">
                     <option value="">-- Select Active Contract --</option>
                 </select>
                 <span asp-validation-for="ContractId" class="text-danger"></span>
@@ -31,7 +33,7 @@
                 <label asp-for="CostUSD" class="form-label">Cost (USD)</label>
                 <div class="input-group">
                     <span class="input-group-text">$</span>
-                    <input asp-for="CostUSD" class="form-control" id="costUSD" />
+                    <input asp-for="CostUSD" class="form-control" id="CostUSD" value="0" step="0.01" />
                 </div>
                 <span asp-validation-for="CostUSD" class="text-danger"></span>
             </div>
@@ -40,10 +42,10 @@
                 <label class="form-label">Cost (ZAR) - Calculated</label>
                 <div class="input-group">
                     <span class="input-group-text">R</span>
-                    <input type="text" id="costZAR" class="form-control" readonly disabled />
+                    <input type="text" id="CostZAR" class="form-control" readonly disabled value="0.00" />
                 </div>
                 <small class="text-muted">
-                    Exchange Rate: 1 USD = <span id="exchangeRate">@ViewBag.CurrentExchangeRate?.ToString("F4")</span> ZAR
+                    Exchange Rate: 1 USD = <span id="exchangeRateDisplay">@ViewBag.CurrentExchangeRate?.ToString("F4")</span> ZAR
                 </small>
             </div>
 
@@ -76,15 +78,33 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
-    
-    <script>
-        // Live currency conversion
-        const exchangeRate = @ViewBag.CurrentExchangeRate?.ToString().Replace(",", ".") ?? 19.50;
-        
-        document.getElementById('costUSD').addEventListener('input', function() {
-            const usd = parseFloat(this.value) || 0;
-            const zar = usd * exchangeRate;
-            document.getElementById('costZAR').value = zar.toFixed(2);
-        });
+
+    <script type="text/javascript">
+        // Get exchange rate from ViewBag
+        var exchangeRate = parseFloat('@ViewBag.CurrentExchangeRate?.ToString().Replace(",", ".")') || 19.50;
+
+        // Display exchange rate
+        document.getElementById('exchangeRateDisplay').innerText = exchangeRate.toFixed(4);
+
+        // Function to update ZAR amount
+        function updateZarAmount() {
+            var usdInput = document.getElementById('CostUSD');
+            var zarOutput = document.getElementById('CostZAR');
+
+            if (usdInput && zarOutput) {
+                var usd = parseFloat(usdInput.value) || 0;
+                var zar = usd * exchangeRate;
+                zarOutput.value = zar.toFixed(2);
+            }
+        }
+
+        // Add event listener to USD input
+        var usdField = document.getElementById('CostUSD');
+        if (usdField) {
+            usdField.addEventListener('input', updateZarAmount);
+            usdField.addEventListener('change', updateZarAmount);
+            // Initial calculation
+            updateZarAmount();
+        }
     </script>
 }

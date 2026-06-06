@@ -1,16 +1,22 @@
-
 using Microsoft.EntityFrameworkCore;
-using GLMS.Data;
+using GLMS.API.Data;
+using GLMS.Models;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Fix circular reference problem
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.WriteIndented = true;
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
 
-// Use In-Memory Database for API
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseInMemoryDatabase("GLMSDb"));
 
-// CORS for MVC app
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -28,4 +34,23 @@ app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
 
+// Seed data
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    if (!db.Clients.Any())
+    {
+        db.Clients.Add(new Client { ClientId = 1, Name = "Global Importers Ltd", Email = "contact@global.com", Phone = "+27 11 234 5678", Address = "123 Main St", Region = "Africa", CreatedAt = DateTime.UtcNow });
+        db.SaveChanges();
+    }
+
+    if (!db.Contracts.Any())
+    {
+        db.Contracts.Add(new Contract { ContractId = 1, ContractNumber = "CT-2026-001", ClientId = 1, StartDate = DateTime.UtcNow.AddMonths(-1), EndDate = DateTime.UtcNow.AddMonths(11), Status = ContractStatus.Active, ServiceLevel = ServiceLevel.Premium, ContractValueUSD = 50000, CreatedAt = DateTime.UtcNow });
+        db.SaveChanges();
+    }
+}
+
+Console.WriteLine("API running on http://localhost:5143");
 app.Run();

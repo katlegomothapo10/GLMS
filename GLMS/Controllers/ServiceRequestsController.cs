@@ -1,89 +1,71 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using GLMS.Data;
-using GLMS.Models;
 using GLMS.Services;
+using GLMS.Models;
 
 namespace GLMS.Controllers
 {
     public class ServiceRequestsController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IApiService _apiService;
         private readonly ICurrencyService _currencyService;
         private readonly ILogger<ServiceRequestsController> _logger;
 
         public ServiceRequestsController(
-            ApplicationDbContext context,
+            IApiService apiService,
             ICurrencyService currencyService,
             ILogger<ServiceRequestsController> logger)
         {
-            _context = context;
+            _apiService = apiService;
             _currencyService = currencyService;
             _logger = logger;
         }
 
-        // ServiceRequests
+        // GET: ServiceRequests
         public async Task<IActionResult> Index()
         {
-            var serviceRequests = _context.ServiceRequests
-                .Include(s => s.Contract)
-                .ThenInclude(c => c!.Client)
-                .OrderByDescending(s => s.RequestedDate);
-
-            return View(await serviceRequests.ToListAsync());
+            var serviceRequests = await _apiService.GetAsync<ServiceRequest>("api/servicerequests");
+            return View(serviceRequests ?? new List<ServiceRequest>());
         }
 
-        //ServiceRequests Details
+        // GET: ServiceRequests/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
-            var serviceRequest = await _context.ServiceRequests
-                .Include(s => s.Contract)
-                .ThenInclude(c => c!.Client)
-                .FirstOrDefaultAsync(m => m.ServiceRequestId == id);
-
-            if (serviceRequest == null)
-            {
-                return NotFound();
-            }
+            var serviceRequest = await _apiService.GetByIdAsync<ServiceRequest>("api/servicerequests", id.Value);
+            if (serviceRequest == null) return NotFound();
 
             return View(serviceRequest);
         }
 
-        //ServiceRequests Create
+        // GET: ServiceRequests/Create
         public async Task<IActionResult> Create()
         {
-            //only active contracts
-            var activeContracts = await _context.Contracts
-                .Include(c => c.Client)
-                .Where(c => c.Status == ContractStatus.Active &&
+            var contracts = await _apiService.GetAsync<Contract>("api/contracts");
+            var activeContracts = contracts?.Where(c => c.Status == ContractStatus.Active &&
                            c.StartDate <= DateTime.Today &&
-                           c.EndDate >= DateTime.Today)
-                .ToListAsync();
+                           c.EndDate >= DateTime.Today).ToList() ?? new List<Contract>();
 
-            ViewBag.Contracts = new SelectList(activeContracts, "ContractId",
-                "ContractNumberWithClient");
-
-            //current exchange rate
+            ViewBag.Contracts = new SelectList(activeContracts, "ContractId", "ContractNumberWithClient");
             var currentRate = await _currencyService.GetUsdToZarRateAsync();
             ViewBag.CurrentExchangeRate = currentRate;
 
             return View();
         }
 
-        //ServiceRequests create
+        // POST: ServiceRequests/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("ContractId,Description,CostUSD,SpecialInstructions")] ServiceRequest serviceRequest)
         {
-            // Validate contract is active before creating service request
-            var contract = await _context.Contracts
-                .FirstOrDefaultAsync(c => c.ContractId == serviceRequest.ContractId);
+            // DEBUG: Log to console
+            Console.WriteLine("=== CREATE POST HIT ===");
+            Console.WriteLine($"ContractId: {serviceRequest.ContractId}");
+            Console.WriteLine($"Description: {serviceRequest.Description}");
+            Console.WriteLine($"CostUSD: {serviceRequest.CostUSD}");
+            Console.WriteLine($"ModelState.IsValid: {ModelState.IsValid}");
+            var contract = await _apiService.GetByIdAsync<Contract>("api/contracts", serviceRequest.ContractId);
 
             if (contract == null)
             {
@@ -94,111 +76,67 @@ namespace GLMS.Controllers
                 ModelState.AddModelError("ContractId",
                     $"Service requests cannot be created for contracts with status '{contract.Status}'. Only Active contracts are allowed.");
             }
-            else if (contract.StartDate > DateTime.Today || contract.EndDate < DateTime.Today)
-            {
-                ModelState.AddModelError("ContractId",
-                    "Contract date range is not valid. Contract must be within its valid date period.");
-            }
 
             if (ModelState.IsValid)
             {
-                //currency conversion
-                var exchangeRate = await _currencyService.GetUsdToZarRateAsync();
-                serviceRequest.CostZAR = serviceRequest.CostUSD * exchangeRate;
-                serviceRequest.ExchangeRateUsed = exchangeRate;
-
-                //unique request number
-                serviceRequest.RequestNumber = $"SR-{DateTime.Now:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 6).ToUpper()}";
-                serviceRequest.Status = RequestStatus.Pending;
-                serviceRequest.RequestedDate = DateTime.UtcNow;
-
-                _context.Add(serviceRequest);
-                await _context.SaveChangesAsync();
-
-                //log entry
-                var log = new ServiceRequestLog
+                try
                 {
-                    ServiceRequestId = serviceRequest.ServiceRequestId,
-                    Action = "Created",
-                    Details = $"Service request created for contract {contract?.ContractNumber}. USD {serviceRequest.CostUSD:F2} = ZAR {serviceRequest.CostZAR:F2} (Rate: {exchangeRate:F4})",
-                    Timestamp = DateTime.UtcNow,
-                    PerformedBy = User.Identity?.Name ?? "System"
-                };
-                _context.ServiceRequestLogs.Add(log);
-                await _context.SaveChangesAsync();
+                    var exchangeRate = await _currencyService.GetUsdToZarRateAsync();
+                    serviceRequest.CostZAR = serviceRequest.CostUSD * exchangeRate;
+                    serviceRequest.ExchangeRateUsed = exchangeRate;
+                    serviceRequest.RequestNumber = $"SR-{DateTime.Now:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 6).ToUpper()}";
+                    serviceRequest.Status = RequestStatus.Pending;
+                    serviceRequest.RequestedDate = DateTime.UtcNow;
 
-                _logger.LogInformation("Service request created: {RequestNumber} for contract {ContractNumber}",
-                    serviceRequest.RequestNumber, contract?.ContractNumber);
-
-                return RedirectToAction(nameof(Index));
+                    var created = await _apiService.PostAsync<ServiceRequest>("api/servicerequests", serviceRequest);
+                    return RedirectToAction(nameof(Index));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error creating service request");
+                    ModelState.AddModelError("", $"Error: {ex.Message}");
+                }
             }
 
-            //view data if validation fails
-            var activeContracts = await _context.Contracts
-                .Include(c => c.Client)
-                .Where(c => c.Status == ContractStatus.Active &&
+            var contracts = await _apiService.GetAsync<Contract>("api/contracts");
+            var activeContracts = contracts?.Where(c => c.Status == ContractStatus.Active &&
                            c.StartDate <= DateTime.Today &&
-                           c.EndDate >= DateTime.Today)
-                .ToListAsync();
+                           c.EndDate >= DateTime.Today).ToList() ?? new List<Contract>();
             ViewBag.Contracts = new SelectList(activeContracts, "ContractId", "ContractNumberWithClient", serviceRequest.ContractId);
             ViewBag.CurrentExchangeRate = await _currencyService.GetUsdToZarRateAsync();
 
             return View(serviceRequest);
         }
 
-        //ServiceRequests Edit
+        // GET: ServiceRequests/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
-            var serviceRequest = await _context.ServiceRequests
-                .Include(s => s.Contract)
-                .FirstOrDefaultAsync(s => s.ServiceRequestId == id);
+            var serviceRequest = await _apiService.GetByIdAsync<ServiceRequest>("api/servicerequests", id.Value);
+            if (serviceRequest == null) return NotFound();
 
-            if (serviceRequest == null)
-            {
-                return NotFound();
-            }
-
-            // Only allow editing of pending requests
             if (serviceRequest.Status != RequestStatus.Pending)
             {
                 TempData["ErrorMessage"] = "Only pending service requests can be edited.";
                 return RedirectToAction(nameof(Index));
             }
 
-            var activeContracts = await _context.Contracts
-                .Where(c => c.Status == ContractStatus.Active)
-                .ToListAsync();
+            var contracts = await _apiService.GetAsync<Contract>("api/contracts");
+            var activeContracts = contracts?.Where(c => c.Status == ContractStatus.Active).ToList() ?? new List<Contract>();
             ViewBag.Contracts = new SelectList(activeContracts, "ContractId", "ContractNumberWithClient", serviceRequest.ContractId);
 
             return View(serviceRequest);
         }
 
-        // Post : ServiceRequests edit
+        // POST: ServiceRequests/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("ServiceRequestId,ContractId,Description,CostUSD,SpecialInstructions,Status")] ServiceRequest serviceRequest)
         {
-            if (id != serviceRequest.ServiceRequestId)
-            {
-                return NotFound();
-            }
+            if (id != serviceRequest.ServiceRequestId) return NotFound();
 
-            var existingRequest = await _context.ServiceRequests
-                .FirstOrDefaultAsync(s => s.ServiceRequestId == id);
-
-            if (existingRequest == null)
-            {
-                return NotFound();
-            }
-
-            // Validate contract still active
-            var contract = await _context.Contracts
-                .FirstOrDefaultAsync(c => c.ContractId == serviceRequest.ContractId);
+            var contract = await _apiService.GetByIdAsync<Contract>("api/contracts", serviceRequest.ContractId);
 
             if (contract == null || contract.Status != ContractStatus.Active)
             {
@@ -209,102 +147,48 @@ namespace GLMS.Controllers
             {
                 try
                 {
-                    // Update fields
-                    existingRequest.ContractId = serviceRequest.ContractId;
-                    existingRequest.Description = serviceRequest.Description;
-                    existingRequest.CostUSD = serviceRequest.CostUSD;
-                    existingRequest.SpecialInstructions = serviceRequest.SpecialInstructions;
-                    existingRequest.Status = serviceRequest.Status;
-
-                    // Recalculate ZAR amount if cost changed
-                    if (existingRequest.CostUSD != serviceRequest.CostUSD)
+                    if (serviceRequest.CostUSD > 0)
                     {
                         var exchangeRate = await _currencyService.GetUsdToZarRateAsync();
-                        existingRequest.CostZAR = serviceRequest.CostUSD * exchangeRate;
-                        existingRequest.ExchangeRateUsed = exchangeRate;
+                        serviceRequest.CostZAR = serviceRequest.CostUSD * exchangeRate;
+                        serviceRequest.ExchangeRateUsed = exchangeRate;
                     }
 
-                    existingRequest.UpdatedAt = DateTime.UtcNow;
-
-                    _context.Update(existingRequest);
-                    await _context.SaveChangesAsync();
-
-                    //log entry
-                    var log = new ServiceRequestLog
-                    {
-                        ServiceRequestId = existingRequest.ServiceRequestId,
-                        Action = "Updated",
-                        Details = $"Service request updated. New status: {existingRequest.Status}",
-                        Timestamp = DateTime.UtcNow,
-                        PerformedBy = User.Identity?.Name ?? "System"
-                    };
-                    _context.ServiceRequestLogs.Add(log);
-                    await _context.SaveChangesAsync();
-
-                    _logger.LogInformation("Service request updated: {RequestNumber}", existingRequest.RequestNumber);
+                    serviceRequest.UpdatedAt = DateTime.UtcNow;
+                    await _apiService.PutAsync<ServiceRequest>("api/servicerequests", id, serviceRequest);
+                    return RedirectToAction(nameof(Index));
                 }
-                catch (DbUpdateConcurrencyException)
+                catch (Exception ex)
                 {
-                    if (!ServiceRequestExists(serviceRequest.ServiceRequestId))
-                    {
-                        return NotFound();
-                    }
-                    throw;
+                    _logger.LogError(ex, "Error updating service request");
+                    ModelState.AddModelError("", $"Error: {ex.Message}");
                 }
-                return RedirectToAction(nameof(Index));
             }
 
-            var activeContracts = await _context.Contracts
-                .Where(c => c.Status == ContractStatus.Active)
-                .ToListAsync();
+            var contracts = await _apiService.GetAsync<Contract>("api/contracts");
+            var activeContracts = contracts?.Where(c => c.Status == ContractStatus.Active).ToList() ?? new List<Contract>();
             ViewBag.Contracts = new SelectList(activeContracts, "ContractId", "ContractNumberWithClient", serviceRequest.ContractId);
 
             return View(serviceRequest);
         }
 
-        // Post : ServiceRequests Update
+        // POST: ServiceRequests/UpdateStatus/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateStatus(int id, RequestStatus newStatus)
+        public async Task<IActionResult> UpdateStatus(int id, int newStatus)
         {
-            var serviceRequest = await _context.ServiceRequests
-                .Include(s => s.Contract)
-                .FirstOrDefaultAsync(s => s.ServiceRequestId == id);
-
-            if (serviceRequest == null)
+            try
             {
-                return NotFound();
+                await _apiService.PatchAsync<object>("api/servicerequests", id, new { Status = newStatus });
+                TempData["SuccessMessage"] = "Status updated successfully";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating status");
+                TempData["ErrorMessage"] = $"Error: {ex.Message}";
             }
 
-            var oldStatus = serviceRequest.Status;
-            serviceRequest.Status = newStatus;
-
-            if (newStatus == RequestStatus.Completed)
-            {
-                serviceRequest.CompletedDate = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
-
-            //log entry
-            var log = new ServiceRequestLog
-            {
-                ServiceRequestId = serviceRequest.ServiceRequestId,
-                Action = "StatusChanged",
-                Details = $"Status changed from {oldStatus} to {newStatus}",
-                Timestamp = DateTime.UtcNow,
-                PerformedBy = User.Identity?.Name ?? "System"
-            };
-            _context.ServiceRequestLogs.Add(log);
-            await _context.SaveChangesAsync();
-
-            TempData["SuccessMessage"] = $"Service request status updated to {newStatus}";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        private bool ServiceRequestExists(int id)
-        {
-            return _context.ServiceRequests.Any(e => e.ServiceRequestId == id);
+            return RedirectToAction(nameof(Index));
         }
     }
 }

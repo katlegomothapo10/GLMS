@@ -1,40 +1,32 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using GLMS.Data;
+using GLMS.Services;
 using GLMS.Models;
 
 namespace GLMS.Controllers
 {
     public class ClientsController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IApiService _apiService;
 
-        public ClientsController(ApplicationDbContext context)
+        public ClientsController(IApiService apiService)
         {
-            _context = context;
+            _apiService = apiService;
         }
 
         // GET: Clients
         public async Task<IActionResult> Index()
         {
-            var clients = await _context.Clients.ToListAsync();
-            return View(clients);
+            var clients = await _apiService.GetAsync<Client>("api/clients");
+            return View(clients ?? new List<Client>());
         }
 
         // GET: Clients/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
-            var client = await _context.Clients
-                .FirstOrDefaultAsync(m => m.ClientId == id);
-            if (client == null)
-            {
-                return NotFound();
-            }
+            var client = await _apiService.GetByIdAsync<Client>("api/clients", id.Value);
+            if (client == null) return NotFound();
 
             return View(client);
         }
@@ -53,8 +45,7 @@ namespace GLMS.Controllers
             if (ModelState.IsValid)
             {
                 client.CreatedAt = DateTime.UtcNow;
-                _context.Add(client);
-                await _context.SaveChangesAsync();
+                var created = await _apiService.PostAsync<Client>("api/clients", client);
                 return RedirectToAction(nameof(Index));
             }
             return View(client);
@@ -63,16 +54,11 @@ namespace GLMS.Controllers
         // GET: Clients/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
-            var client = await _context.Clients.FindAsync(id);
-            if (client == null)
-            {
-                return NotFound();
-            }
+            var client = await _apiService.GetByIdAsync<Client>("api/clients", id.Value);
+            if (client == null) return NotFound();
+
             return View(client);
         }
 
@@ -81,29 +67,11 @@ namespace GLMS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("ClientId,Name,Email,Phone,Address,Region,ContactPerson,CreatedAt")] Client client)
         {
-            if (id != client.ClientId)
-            {
-                return NotFound();
-            }
+            if (id != client.ClientId) return NotFound();
 
             if (ModelState.IsValid)
             {
-                try
-                {
-                    _context.Update(client);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!ClientExists(client.ClientId))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
+                await _apiService.PutAsync<Client>("api/clients", id, client);
                 return RedirectToAction(nameof(Index));
             }
             return View(client);
@@ -112,17 +80,10 @@ namespace GLMS.Controllers
         // GET: Clients/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
-            var client = await _context.Clients
-                .FirstOrDefaultAsync(m => m.ClientId == id);
-            if (client == null)
-            {
-                return NotFound();
-            }
+            var client = await _apiService.GetByIdAsync<Client>("api/clients", id.Value);
+            if (client == null) return NotFound();
 
             return View(client);
         }
@@ -132,18 +93,8 @@ namespace GLMS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var client = await _context.Clients.FindAsync(id);
-            if (client != null)
-            {
-                _context.Clients.Remove(client);
-                await _context.SaveChangesAsync();
-            }
+            await _apiService.DeleteAsync("api/clients", id);
             return RedirectToAction(nameof(Index));
-        }
-
-        private bool ClientExists(int id)
-        {
-            return _context.Clients.Any(e => e.ClientId == id);
         }
     }
 }

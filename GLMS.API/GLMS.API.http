@@ -1,4 +1,4 @@
-@GLMS.API_HostAddress = http://localhost:5164
+@GLMS.API_HostAddress = http://localhost:5143
 
 GET {{GLMS.API_HostAddress}}/weatherforecast/
 Accept: application/json

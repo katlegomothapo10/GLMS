@@ -1,8 +1,0 @@
-**/appsettings*.json
-**/bin/
-**/obj/
-*.csproj
-*.user
-*.suo
-.vs/
-.git/

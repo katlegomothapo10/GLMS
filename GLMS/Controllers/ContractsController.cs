@@ -1,74 +1,64 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
-using GLMS.Data;
+using GLMS.Services;
 using GLMS.Models;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Hosting;
 
 namespace GLMS.Controllers
 {
     public class ContractsController : Controller
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IWebHostEnvironment _webHostEnvironment;
-        private readonly ILogger<ContractsController> _logger;
+        private readonly IApiService _apiService;
 
-        public ContractsController(
-            ApplicationDbContext context,
-            IWebHostEnvironment webHostEnvironment,
-            ILogger<ContractsController> logger)
+        public ContractsController(IApiService apiService)
         {
-            _context = context;
-            _webHostEnvironment = webHostEnvironment;
-            _logger = logger;
+            _apiService = apiService;
         }
 
-        // Contracts
+        // GET: Contracts
         public async Task<IActionResult> Index(
             string searchString,
             DateTime? startDate,
             DateTime? endDate,
             ContractStatus? status)
         {
-            var contracts = _context.Contracts
-                .Include(c => c.Client)
-                .AsQueryable();
+            // Get contracts from API
+            var contracts = await _apiService.GetAsync<Contract>("api/contracts");
 
-            // filters using LINQ
+            // Apply filters
             if (!string.IsNullOrEmpty(searchString))
             {
-                contracts = contracts.Where(c =>
+                contracts = contracts?.Where(c =>
                     c.ContractNumber.Contains(searchString) ||
-                    (c.Client != null && c.Client.Name.Contains(searchString)));
+                    (c.Client != null && c.Client.Name.Contains(searchString))).ToList();
             }
 
             if (startDate.HasValue)
             {
-                contracts = contracts.Where(c => c.StartDate >= startDate.Value);
+                contracts = contracts?.Where(c => c.StartDate >= startDate.Value).ToList();
             }
 
             if (endDate.HasValue)
             {
-                contracts = contracts.Where(c => c.EndDate <= endDate.Value);
+                contracts = contracts?.Where(c => c.EndDate <= endDate.Value).ToList();
             }
 
             if (status.HasValue)
             {
-                contracts = contracts.Where(c => c.Status == status.Value);
+                contracts = contracts?.Where(c => c.Status == status.Value).ToList();
             }
 
-            // Update statuses (dates)
-            var allContracts = await contracts.ToListAsync();
-            foreach (var contract in allContracts)
+            // Update expired contracts via API
+            if (contracts != null)
             {
-                if (contract.Status == ContractStatus.Active && contract.EndDate < DateTime.Today)
+                foreach (var contract in contracts)
                 {
-                    contract.Status = ContractStatus.Expired;
-                    _context.Entry(contract).State = EntityState.Modified;
+                    if (contract.Status == ContractStatus.Active && contract.EndDate < DateTime.Today)
+                    {
+                        contract.Status = ContractStatus.Expired;
+                        await _apiService.PatchAsync<object>("api/contracts", contract.ContractId, new { Status = (int)ContractStatus.Expired });
+                    }
                 }
             }
-            await _context.SaveChangesAsync();
 
             ViewBag.StatusFilter = new SelectList(Enum.GetValues(typeof(ContractStatus)));
             ViewBag.CurrentStatus = status;
@@ -76,226 +66,116 @@ namespace GLMS.Controllers
             ViewBag.CurrentEndDate = endDate;
             ViewBag.CurrentSearchString = searchString;
 
-            return View(allContracts);
+            return View(contracts ?? new List<Contract>());
         }
 
-        // Contracts Details
+        // GET: Contracts/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
-            var contract = await _context.Contracts
-                .Include(c => c.Client)
-                .Include(c => c.ServiceRequests)
-                .FirstOrDefaultAsync(m => m.ContractId == id);
-
-            if (contract == null)
-            {
-                return NotFound();
-            }
+            var contract = await _apiService.GetByIdAsync<Contract>("api/contracts", id.Value);
+            if (contract == null) return NotFound();
 
             return View(contract);
         }
 
-        // GET: Contracts/Create - This displays the form
-        [HttpGet]
+        // GET: Contracts/Create
         public async Task<IActionResult> Create()
         {
-            ViewBag.Clients = new SelectList(await _context.Clients.ToListAsync(), "ClientId", "Name");
+            var clients = await _apiService.GetAsync<Client>("api/clients");
+            ViewBag.Clients = new SelectList(clients, "ClientId", "Name");
             return View();
         }
 
-        // POST: Contracts/Create - This saves the data
+        // POST: Contracts/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ClientId,StartDate,EndDate,Status,ServiceLevel,ContractValueUSD,SpecialTerms")] Contract contract, IFormFile? SignedAgreement)
+        public async Task<IActionResult> Create([Bind("ClientId,StartDate,EndDate,Status,ServiceLevel,ContractValueUSD,SpecialTerms")] Contract contract)
         {
+            ModelState.Remove("ContractNumber");
+            ModelState.Remove("Client");
+            ModelState.Remove("ServiceRequests");
+
             if (ModelState.IsValid)
             {
-                // Generate contract number
                 contract.ContractNumber = $"CT-{DateTime.Now:yyyy}-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}";
                 contract.CreatedAt = DateTime.UtcNow;
 
-                // Handle file upload
-                if (SignedAgreement != null && SignedAgreement.Length > 0)
-                {
-                    var extension = Path.GetExtension(SignedAgreement.FileName).ToLower();
-                    if (extension == ".pdf")
-                    {
-                        var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "contracts");
-                        if (!Directory.Exists(uploadsFolder))
-                            Directory.CreateDirectory(uploadsFolder);
-
-                        var uniqueFileName = $"{contract.ContractNumber}_{DateTime.Now:yyyyMMddHHmmss}_{SignedAgreement.FileName}";
-                        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                        using (var stream = new FileStream(filePath, FileMode.Create))
-                        {
-                            await SignedAgreement.CopyToAsync(stream);
-                        }
-
-                        contract.SignedAgreementPath = $"/uploads/contracts/{uniqueFileName}";
-                    }
-                }
-
-                _context.Add(contract);
-                await _context.SaveChangesAsync();
+                var created = await _apiService.PostAsync<Contract>("api/contracts", contract);
                 return RedirectToAction(nameof(Index));
             }
 
-            ViewBag.Clients = new SelectList(await _context.Clients.ToListAsync(), "ClientId", "Name", contract.ClientId);
+            var clients = await _apiService.GetAsync<Client>("api/clients");
+            ViewBag.Clients = new SelectList(clients, "ClientId", "Name", contract.ClientId);
             return View(contract);
         }
 
-        // Contracts edit
+        // GET: Contracts/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
-            var contract = await _context.Contracts.FindAsync(id);
-            if (contract == null)
-            {
-                return NotFound();
-            }
+            var contract = await _apiService.GetByIdAsync<Contract>("api/contracts", id.Value);
+            if (contract == null) return NotFound();
 
-            ViewBag.Clients = new SelectList(await _context.Clients.ToListAsync(), "ClientId", "Name", contract.ClientId);
+            var clients = await _apiService.GetAsync<Client>("api/clients");
+            ViewBag.Clients = new SelectList(clients, "ClientId", "Name", contract.ClientId);
             return View(contract);
         }
 
-        // Post : Contracts edit
+        // POST: Contracts/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("ContractId,ContractNumber,ClientId,StartDate,EndDate,Status,ServiceLevel,ContractValueUSD,SpecialTerms,SignedAgreementPath")] Models.Contract contract, IFormFile? SignedAgreement)
+        public async Task<IActionResult> Edit(int id, [Bind("ContractId,ContractNumber,ClientId,StartDate,EndDate,Status,ServiceLevel,ContractValueUSD,SpecialTerms")] Contract contract)
         {
-            if (id != contract.ContractId)
-            {
-                return NotFound();
-            }
+            if (id != contract.ContractId) return NotFound();
+
+            ModelState.Remove("Client");
+            ModelState.Remove("ServiceRequests");
 
             if (ModelState.IsValid)
             {
-                try
-                {
-                    //new file upload
-                    if (SignedAgreement != null && SignedAgreement.Length > 0)
-                    {
-                        var extension = Path.GetExtension(SignedAgreement.FileName).ToLower();
-                        if (extension != ".pdf")
-                        {
-                            ModelState.AddModelError("SignedAgreement", "Only PDF files are allowed.");
-                            ViewBag.Clients = new SelectList(await _context.Clients.ToListAsync(), "ClientId", "Name", contract.ClientId);
-                            return View(contract);
-                        }
-
-                        // Delete old file
-                        if (!string.IsNullOrEmpty(contract.SignedAgreementPath))
-                        {
-                            var oldFilePath = Path.Combine(_webHostEnvironment.WebRootPath, contract.SignedAgreementPath.TrimStart('/'));
-                            if (System.IO.File.Exists(oldFilePath))
-                            {
-                                System.IO.File.Delete(oldFilePath);
-                            }
-                        }
-
-                        var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", "contracts");
-                        if (!Directory.Exists(uploadsFolder))
-                        {
-                            Directory.CreateDirectory(uploadsFolder);
-                        }
-
-                        var uniqueFileName = $"{contract.ContractNumber}_{DateTime.Now:yyyyMMddHHmmss}_{SignedAgreement.FileName}";
-                        var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                        using (var fileStream = new FileStream(filePath, FileMode.Create))
-                        {
-                            await SignedAgreement.CopyToAsync(fileStream);
-                        }
-
-                        contract.SignedAgreementPath = $"/uploads/contracts/{uniqueFileName}";
-                    }
-
-                    contract.UpdatedAt = DateTime.UtcNow;
-                    _context.Entry(contract).State = EntityState.Modified;
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("Contract updated: {ContractNumber}", contract.ContractNumber);
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!ContractExists(contract.ContractId))
-                    {
-                        return NotFound();
-                    }
-                    throw;
-                }
+                contract.UpdatedAt = DateTime.UtcNow;
+                await _apiService.PutAsync<Contract>("api/contracts", id, contract);
                 return RedirectToAction(nameof(Index));
             }
 
-            ViewBag.Clients = new SelectList(await _context.Clients.ToListAsync(), "ClientId", "Name", contract.ClientId);
+            var clients = await _apiService.GetAsync<Client>("api/clients");
+            ViewBag.Clients = new SelectList(clients, "ClientId", "Name", contract.ClientId);
             return View(contract);
         }
 
-        //Contracts Delete
+        // GET: Contracts/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
-            var contract = await _context.Contracts
-                .Include(c => c.Client)
-                .FirstOrDefaultAsync(m => m.ContractId == id);
-
-            if (contract == null)
-            {
-                return NotFound();
-            }
+            var contract = await _apiService.GetByIdAsync<Contract>("api/contracts", id.Value);
+            if (contract == null) return NotFound();
 
             return View(contract);
         }
 
-        // Post : Contracts delete
+        // POST: Contracts/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var contract = await _context.Contracts.FindAsync(id);
-            if (contract != null)
-            {
-                // Delete file
-                if (!string.IsNullOrEmpty(contract.SignedAgreementPath))
-                {
-                    var filePath = Path.Combine(_webHostEnvironment.WebRootPath, contract.SignedAgreementPath.TrimStart('/'));
-                    if (System.IO.File.Exists(filePath))
-                    {
-                        System.IO.File.Delete(filePath);
-                    }
-                }
-
-                _context.Contracts.Remove(contract);
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Contract deleted: {ContractNumber}", contract.ContractNumber);
-            }
-
+            await _apiService.DeleteAsync("api/contracts", id);
             return RedirectToAction(nameof(Index));
         }
 
-        //Contracts download file
+        // GET: Contracts/DownloadFile/5
         public async Task<IActionResult> DownloadFile(int id)
         {
-            var contract = await _context.Contracts.FindAsync(id);
+            var contract = await _apiService.GetByIdAsync<Contract>("api/contracts", id);
             if (contract == null || string.IsNullOrEmpty(contract.SignedAgreementPath))
             {
                 return NotFound();
             }
 
-            var filePath = Path.Combine(_webHostEnvironment.WebRootPath, contract.SignedAgreementPath.TrimStart('/'));
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", contract.SignedAgreementPath.TrimStart('/'));
             if (!System.IO.File.Exists(filePath))
             {
                 return NotFound();
@@ -310,11 +190,6 @@ namespace GLMS.Controllers
 
             var fileName = Path.GetFileName(contract.SignedAgreementPath);
             return File(memory, "application/pdf", fileName);
-        }
-
-        private bool ContractExists(int id)
-        {
-            return _context.Contracts.Any(e => e.ContractId == id);
         }
     }
 }
