@@ -1,0 +1,10 @@
+﻿**/bin/
+**/obj/
+**/.vs/
+**/wwwroot/lib/
+*.user
+*.suo
+.git/
+**/Migrations/
+**/Properties/
+**/launchSettings.json

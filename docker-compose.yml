@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   glms-backend-api:
     build:
@@ -29,6 +27,23 @@ services:
     networks:
       - glms_network
 
+  sql-server-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: glms_sql_server
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Your_password123
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    networks:
+      - glms_network
+
 networks:
   glms_network:
     driver: bridge
+
+volumes:
+  sql_data:

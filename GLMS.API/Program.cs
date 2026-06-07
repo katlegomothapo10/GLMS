@@ -8,11 +8,22 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // Fix circular reference problem
         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
         options.JsonSerializerOptions.WriteIndented = true;
         options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
     });
+
+// ADD SWAGGER - THIS IS NEW
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "GLMS API",
+        Version = "v1",
+        Description = "Global Logistics Management System API"
+    });
+});
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseInMemoryDatabase("GLMSDb"));
@@ -28,6 +39,16 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// ENABLE SWAGGER - THIS IS NEW
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "GLMS API v1");
+    });
+}
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
@@ -53,4 +74,5 @@ using (var scope = app.Services.CreateScope())
 }
 
 Console.WriteLine("API running on http://localhost:5143");
+Console.WriteLine("Swagger UI: http://localhost:5143/swagger");
 app.Run();
