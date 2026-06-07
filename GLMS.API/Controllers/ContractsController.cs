@@ -67,5 +67,16 @@ namespace GLMS.API.Controllers
             await _context.SaveChangesAsync();
             return Ok(existing);
         }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteContract(int id)
+        {
+            var contract = await _context.Contracts.FindAsync(id);
+            if (contract == null) return NotFound();
+
+            _context.Contracts.Remove(contract);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
     }
 }

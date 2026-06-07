@@ -257,5 +257,40 @@ namespace GLMS.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+
+        // GET: ServiceRequests/Delete/5
+        public async Task<IActionResult> Delete(int? id)
+        {
+            if (id == null) return NotFound();
+
+            var serviceRequest = await _apiService.GetByIdAsync<ServiceRequest>("api/servicerequests", id.Value);
+            if (serviceRequest == null) return NotFound();
+
+            return View(serviceRequest);
+        }
+
+        // POST: ServiceRequests/Delete/5
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            try
+            {
+                var success = await _apiService.DeleteAsync("api/servicerequests", id);
+                if (success)
+                {
+                    TempData["SuccessMessage"] = "Service request deleted successfully!";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = "Failed to delete service request.";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error: {ex.Message}";
+            }
+            return RedirectToAction(nameof(Index));
+        }
     }
 }

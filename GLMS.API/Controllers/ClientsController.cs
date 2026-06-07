@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using GLMS.API.Data;
+using GLMS.Models;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using GLMS.API.Data;
-using GLMS.Models;  // This references the MVC project's Models
 
 namespace GLMS.API.Controllers
 {
@@ -22,6 +22,24 @@ namespace GLMS.API.Controllers
             var clients = await _context.Clients.ToListAsync();
             return Ok(clients);
         }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetClient(int id)
+        {
+            var client = await _context.Clients.FindAsync(id);
+            if (client == null) return NotFound();
+            return Ok(client);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateClient([FromBody] Client client)
+        {
+            client.CreatedAt = DateTime.UtcNow;
+            _context.Clients.Add(client);
+            await _context.SaveChangesAsync();
+            return CreatedAtAction(nameof(GetClient), new { id = client.ClientId }, client);
+        }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateClient(int id, [FromBody] Client client)
         {
@@ -41,5 +59,15 @@ namespace GLMS.API.Controllers
             return Ok(existing);
         }
 
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteClient(int id)
+        {
+            var client = await _context.Clients.FindAsync(id);
+            if (client == null) return NotFound();
+
+            _context.Clients.Remove(client);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
     }
 }

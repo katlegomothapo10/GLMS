@@ -45,7 +45,10 @@ namespace GLMS.Controllers
             if (ModelState.IsValid)
             {
                 client.CreatedAt = DateTime.UtcNow;
+
+                // This should be "api/clients" (lowercase 'c')
                 var created = await _apiService.PostAsync<Client>("api/clients", client);
+
                 return RedirectToAction(nameof(Index));
             }
             return View(client);

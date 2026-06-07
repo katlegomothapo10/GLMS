@@ -48,12 +48,26 @@ namespace GLMS.Services
 
         public async Task<T> PostAsync<T>(string endpoint, object data)
         {
-            var json = JsonSerializer.Serialize(data);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync(endpoint, content);
-            response.EnsureSuccessStatusCode();
-            var responseJson = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<T>(responseJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            try
+            {
+                var json = JsonSerializer.Serialize(data);
+                Console.WriteLine($"POST to: {_httpClient.BaseAddress}{endpoint}");
+                Console.WriteLine($"Body: {json}");
+
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync(endpoint, content);
+
+                var responseJson = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Response: {(int)response.StatusCode} - {responseJson}");
+
+                response.EnsureSuccessStatusCode();
+                return JsonSerializer.Deserialize<T>(responseJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"PostAsync Error: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<T> PutAsync<T>(string endpoint, int id, object data)
