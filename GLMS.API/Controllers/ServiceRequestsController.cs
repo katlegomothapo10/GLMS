@@ -111,21 +111,6 @@ namespace GLMS.API.Controllers
             return Ok(existing);
         }
 
-        [HttpPatch("{id}/status")]
-        public async Task<IActionResult> UpdateStatus(int id, [FromBody] int status)
-        {
-            var request = await _context.ServiceRequests.FindAsync(id);
-            if (request == null) return NotFound();
-
-            request.Status = (RequestStatus)status;
-            if (request.Status == RequestStatus.Completed)
-                request.CompletedDate = DateTime.UtcNow;
-            request.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-            return Ok(request);
-        }
-
         // PATCH: api/servicerequests/5/status
         [HttpPatch("{id}/status")]
         public async Task<IActionResult> UpdateServiceRequestStatus(int id, [FromBody] int status)

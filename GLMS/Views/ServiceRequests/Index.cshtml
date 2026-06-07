@@ -11,6 +11,55 @@
     </a>
 </div>
 
+<!-- Search and Filter Section -->
+<div class="card mb-4">
+    <div class="card-header bg-secondary text-white">
+        <i class="fas fa-filter"></i> Search & Filter
+    </div>
+    <div class="card-body">
+        <form asp-action="Index" method="get">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="searchString" class="form-control" placeholder="Request #, Contract #, Description..." value="@ViewBag.CurrentSearchString" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-control" asp-items="ViewBag.StatusFilter">
+                        <option value="">All</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Min Cost (USD)</label>
+                    <input type="number" name="minCost" class="form-control" placeholder="Min $" value="@ViewBag.CurrentMinCost" step="0.01" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Max Cost (USD)</label>
+                    <input type="number" name="maxCost" class="form-control" placeholder="Max $" value="@ViewBag.CurrentMaxCost" step="0.01" />
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary form-control"><i class="fas fa-search"></i> Search</button>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-3">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="startDate" class="form-control" value="@ViewBag.CurrentStartDate?.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="endDate" class="form-control" value="@ViewBag.CurrentEndDate?.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">&nbsp;</label>
+                    <a asp-action="Index" class="btn btn-secondary">Clear Filters</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
 @if (!Model.Any())
 {
     <div class="alert alert-info">
