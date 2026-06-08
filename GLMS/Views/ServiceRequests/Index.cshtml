@@ -19,73 +19,64 @@
     <div class="card-body">
         <form asp-action="Index" method="get">
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-md-3 mb-2">
                     <label class="form-label">Search</label>
                     <input type="text" name="searchString" class="form-control" placeholder="Request #, Contract #, Description..." value="@ViewBag.CurrentSearchString" />
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2 mb-2">
                     <label class="form-label">Status</label>
                     <select name="status" class="form-control" asp-items="ViewBag.StatusFilter">
                         <option value="">All</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-2 mb-2">
                     <label class="form-label">Min Cost (USD)</label>
                     <input type="number" name="minCost" class="form-control" placeholder="Min $" value="@ViewBag.CurrentMinCost" step="0.01" />
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-2 mb-2">
                     <label class="form-label">Max Cost (USD)</label>
                     <input type="number" name="maxCost" class="form-control" placeholder="Max $" value="@ViewBag.CurrentMaxCost" step="0.01" />
                 </div>
-                <div class="col-md-1">
-                    <label class="form-label">&nbsp;</label>
-                    <button type="submit" class="btn btn-primary form-control"><i class="fas fa-search"></i> Search</button>
+                <div class="col-md-2 mb-2">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="startDate" class="form-control" value="@(ViewBag.CurrentStartDate?.ToString("yyyy-MM-dd"))" />
+                </div>
+                <div class="col-md-2 mb-2">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="endDate" class="form-control" value="@(ViewBag.CurrentEndDate?.ToString("yyyy-MM-dd"))" />
                 </div>
             </div>
             <div class="row mt-2">
-                <div class="col-md-3">
-                    <label class="form-label">Start Date</label>
-                    <input type="date" name="startDate" class="form-control" value="@ViewBag.CurrentStartDate?.ToString("yyyy-MM-dd")" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">End Date</label>
-                    <input type="date" name="endDate" class="form-control" value="@ViewBag.CurrentEndDate?.ToString("yyyy-MM-dd")" />
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">&nbsp;</label>
-                    <a asp-action="Index" class="btn btn-secondary">Clear Filters</a>
+                <div class="col-md-12">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+                    <a asp-action="Index" class="btn btn-secondary"><i class="fas fa-undo"></i> Clear Filters</a>
                 </div>
             </div>
         </form>
     </div>
 </div>
 
-@if (!Model.Any())
-{
-    <div class="alert alert-info">
-        <i class="fas fa-info-circle"></i> No service requests found. Click "New Service Request" to create one.
-    </div>
-}
-else
-{
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Request #</th>
-                            <th>Contract</th>
-                            <th>Client</th>
-                            <th>Description</th>
-                            <th>Cost (USD)</th>
-                            <th>Cost (ZAR)</th>
-                            <th>Status</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+<!-- Results Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Request #</th>
+                        <th>Contract</th>
+                        <th>Client</th>
+                        <th>Description</th>
+                        <th>Cost (USD)</th>
+                        <th>Cost (ZAR)</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
                         @foreach (var item in Model)
                         {
                             <tr>
@@ -94,7 +85,7 @@ else
                                 <td>@item.Contract?.Client?.Name</td>
                                 <td>@item.Description</td>
                                 <td>$@item.CostUSD.ToString("N2")</td>
-                                <td>R@item.CostZAR.ToString("N2")</td>
+                                <td>R @item.CostZAR.ToString("N2")</td>
                                 <td>
                                     @if (item.Status == GLMS.Models.RequestStatus.Completed)
                                     {
@@ -123,34 +114,36 @@ else
                                         <a asp-action="Edit" asp-route-id="@item.ServiceRequestId" class="btn btn-sm btn-warning" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
+                                        <form asp-action="DeleteConfirmed" asp-route-id="@item.ServiceRequestId" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this service request?');">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
                                     }
-                                    <form asp-action="UpdateStatus" asp-route-id="@item.ServiceRequestId" method="post" style="display: inline;">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="newStatus" value="@((int)GLMS.Models.RequestStatus.InProgress)" />
-                                        <button type="submit" class="btn btn-sm btn-primary" title="Start">
-                                            <i class="fas fa-play"></i>
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-secondary" disabled title="Cannot edit completed requests">
+                                            <i class="fas fa-edit"></i>
                                         </button>
-                                    </form>
-                                    <form asp-action="UpdateStatus" asp-route-id="@item.ServiceRequestId" method="post" style="display: inline;">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="newStatus" value="@((int)GLMS.Models.RequestStatus.Completed)" />
-                                        <button type="submit" class="btn btn-sm btn-success" title="Complete">
-                                            <i class="fas fa-check"></i>
+                                        <button class="btn btn-sm btn-secondary" disabled title="Cannot delete completed requests">
+                                            <i class="fas fa-trash"></i>
                                         </button>
-                                    </form>
-                                    <form asp-action="UpdateStatus" asp-route-id="@item.ServiceRequestId" method="post" style="display: inline;">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="newStatus" value="@((int)GLMS.Models.RequestStatus.Cancelled)" />
-                                        <button type="submit" class="btn btn-sm btn-danger" title="Cancel">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </form>
+                                    }
                                 </td>
                             </tr>
                         }
-                    </tbody>
-                </table>
-            </div>
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center text-muted">
+                                No service requests found. Click "New Service Request" to create one.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     </div>
-}
+</div>

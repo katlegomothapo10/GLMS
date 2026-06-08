@@ -142,17 +142,12 @@ namespace GLMS.API.Controllers
         public async Task<IActionResult> DeleteServiceRequest(int id)
         {
             var request = await _context.ServiceRequests.FindAsync(id);
-            if (request == null)
-                return NotFound(new { message = $"Service request with ID {id} not found" });
+            if (request == null) return NotFound();
 
             _context.ServiceRequests.Remove(request);
             await _context.SaveChangesAsync();
-
-            _logger.LogInformation("Service request deleted: {RequestNumber}", request.RequestNumber);
-
             return NoContent();
         }
-
 
     }
 }

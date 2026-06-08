@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
+﻿using GLMS.Models;
 using GLMS.Services;
-using GLMS.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace GLMS.Controllers
 {
@@ -23,12 +23,12 @@ namespace GLMS.Controllers
 
         // GET: ServiceRequests
         public async Task<IActionResult> Index(
-    string searchString,
-    int? status,
-    decimal? minCost,
-    decimal? maxCost,
-    DateTime? startDate,
-    DateTime? endDate)
+            string searchString,
+            int? status,
+            decimal? minCost,
+            decimal? maxCost,
+            DateTime? startDate,
+            DateTime? endDate)
         {
             var requests = await _apiService.GetAsync<ServiceRequest>("api/servicerequests");
 
@@ -108,11 +108,6 @@ namespace GLMS.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("ContractId,Description,CostUSD,SpecialInstructions")] ServiceRequest serviceRequest)
         {
-            Console.WriteLine("===== CREATE POST METHOD HIT =====");
-            Console.WriteLine($"ContractId: {serviceRequest.ContractId}");
-            Console.WriteLine($"Description: {serviceRequest.Description}");
-            Console.WriteLine($"CostUSD: {serviceRequest.CostUSD}");
-
             // Remove validation for fields we handle
             ModelState.Remove("RequestNumber");
             ModelState.Remove("Status");
@@ -160,7 +155,6 @@ namespace GLMS.Controllers
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error: {ex.Message}");
                     ModelState.AddModelError("", $"Error: {ex.Message}");
                 }
             }
@@ -175,6 +169,7 @@ namespace GLMS.Controllers
 
             return View(serviceRequest);
         }
+
         // GET: ServiceRequests/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
@@ -276,7 +271,11 @@ namespace GLMS.Controllers
         {
             try
             {
+                Console.WriteLine($"===== DELETE CALLED FOR ID: {id} =====");
+
+                // Call your API service
                 var success = await _apiService.DeleteAsync("api/servicerequests", id);
+
                 if (success)
                 {
                     TempData["SuccessMessage"] = "Service request deleted successfully!";
@@ -288,8 +287,10 @@ namespace GLMS.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Delete error: {ex.Message}");
                 TempData["ErrorMessage"] = $"Error: {ex.Message}";
             }
+
             return RedirectToAction(nameof(Index));
         }
     }
